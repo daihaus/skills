@@ -2,6 +2,9 @@
 node_modules
 **/node_modules
 
+# Lockfiles (machine-generated; pnpm owns the format)
+pnpm-lock.yaml
+
 # Build outputs
 dist
 build

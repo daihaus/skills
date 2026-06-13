@@ -120,8 +120,8 @@ repo allows.
 ## 8. Merge + remote branch deletion
 
 ```bash
-gh pr merge <PR> --merge                # or --squash / --rebase
-gh pr merge <PR> --merge --delete-branch   # also deletes the REMOTE head branch
+gh pr merge <PR> --merge                 # or --squash / --rebase
+gh pr merge <PR> --merge --delete-branch # also deletes the REMOTE head branch
 ```
 
 `--delete-branch` removes the remote branch and _attempts_ the local one — but it

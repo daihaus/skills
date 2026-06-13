@@ -18,7 +18,7 @@ A visual must carry information **more efficiently** than prose. If a sentence d
 | **Dynamic system / emergence / "watch it run"** (cellular automata, chaos, percolation, flocking, random processes, gradient descent on loss surface) | **`algorithmic-art`** (p5.js)   | skill      |
 | Printable concept poster / cheat sheet (one static image)                                                                                             | **`canvas-design`**             | skill      |
 | Complex multi-panel interactive demo with state and real components                                                                                   | **`web-artifacts-builder`**     | skill      |
-| Artifact Kros will re-open across sessions / refresh on demand                                                                                        | **`create_artifact`**           | persistent |
+| Artifact the user will re-open across sessions / refresh on demand                                                                                    | **`create_artifact`**           | persistent |
 
 ## 9-step triage
 
@@ -57,7 +57,7 @@ When in doubt, walk down this list and stop at the first match:
 - **3D charts** — almost never warranted; the third dimension distorts data.
 - **Color-only encoding** — pair with shape/pattern/label for accessibility.
 - **A diagram that just restates the bullet list above it** — pick one.
-- **Decoration emoji** — Kros's preferences explicitly skip emoji.
+- **Decoration emoji** — they add noise, not information; skip them.
 - **Reaching for `web-artifacts-builder` when `show_widget` would do** — heavier and slower for the same outcome.
 - **`create_artifact` for one-off explanations** — persistence has overhead; only worth it when re-opens are likely.
 - **Animating something static** — `algorithmic-art` is great when dynamics carry information; otherwise animation just delays comprehension.

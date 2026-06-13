@@ -32,7 +32,7 @@ Use when the content is an ordered or enumerated set with no internal logic to d
 
 ### Stories — for processes that unfold over time
 
-Use when the concept _is_ a sequence of events with causes, or when the historical invention story illuminates the mechanism. Stories also do double-duty as Kros's preferred "历史背景 + 人物故事" mode.
+Use when the concept _is_ a sequence of events with causes, or when the historical invention story illuminates the mechanism. Stories also satisfy a learner's appetite for historical context and the human story behind an idea ("历史背景 + 人物故事").
 
 **Worked example — why TCP looks the way it does:**
 Tell the ARPANET story: the early '70s assumption was "the network is reliable, hosts are dumb"; Cerf and Kahn flipped it to "network is dumb, hosts are smart" (end-to-end principle), because the network was about to become a confederation of unreliable subnetworks. That's why TCP does retransmission at the endpoints, not in the middle. The story isn't decoration — it explains the architecture.
@@ -50,7 +50,7 @@ A neuron fires roughly 200 times/sec (5 ms refractory). A modern CPU clock is ~3
 
 **Trap 2 — Loading too much onto one analogy.** A good analogy maps one mechanism well. Trying to make the same analogy explain _also_ energy, _also_ parallelism, _also_ error handling usually fails. Use multiple analogies, each tight, rather than one stretched.
 
-**Trap 3 — Cultural opacity.** A baseball analogy is opaque to someone who doesn't follow baseball. Default to physical-world analogies (water, gears, traffic, cooking) that don't require culture-specific knowledge. If you use a culture-specific one, pick from contexts Kros likely knows (中国语境、互联网工程、商业).
+**Trap 3 — Cultural opacity.** A baseball analogy is opaque to someone who doesn't follow baseball. Default to physical-world analogies (water, gears, traffic, cooking) that don't require culture-specific knowledge. If you use a culture-specific one, pick from contexts the user is likely to know (their cultural background, their profession, their domain).
 
 **Trap 4 — The "magic" hook.** "It's like magic — you put data in and answers come out." This is a refusal to teach. If you find yourself reaching for "magic", the model isn't there yet — go back to mechanism.
 

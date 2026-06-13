@@ -11,7 +11,7 @@ description: >-
   are writing for a downstream agent) — those incidental cases are where
   audience-blind writing slips through, so reach for this proactively. It makes
   you model the reader's actual capability and what they will infer or assume,
-  then emit only the calibrated artifact. Do NOT use only for output consumed
+  then emit only the calibrated artifact. Do NOT use for output consumed
   literally by a deterministic interpreter — executed code, configs, schemas,
   queries, regexes, test fixtures — where correctness is binary and there is no
   mind to model.

@@ -1,12 +1,12 @@
 # Bilingual Conventions (Chinese / English)
 
-Kros is a native Chinese speaker learning English. His preferences encode three patterns; this file pins down the exact format so the skill produces consistent output.
+These conventions apply when the user is learning in a second language and wants the deep-dive to support that. The running example throughout is a native Chinese speaker learning English — adapt the specifics to the user's actual language pair. There are three patterns; this file pins down the exact format so the skill produces consistent output.
 
 ## The three patterns
 
 ### 1. Rephrase the user's message
 
-At the **start** of every response, restate the user's message in natural idiomatic English, in a blockquote, so Kros can learn from the improvement.
+At the **start** of every response, restate the user's message in natural idiomatic English, in a blockquote, so the user can learn from the improvement.
 
 ```
 > [Idiomatic English rephrase of the user's message here]
@@ -57,7 +57,7 @@ Don't translate code, mathematical symbols, file paths, library names, function 
 
 ## Mixed paragraphs
 
-Mixing Chinese and English freely within a paragraph is fine and matches how Kros speaks. Default to Chinese for narrative and explanation; switch to English for technical terms, quotes, and proper nouns.
+Mixing Chinese and English freely within a paragraph is fine and matches how many bilingual speakers naturally think. Default to Chinese for narrative and explanation; switch to English for technical terms, quotes, and proper nouns.
 
 ```
 我们看一下 attention mechanism (注意力机制) 是怎么算的。给定 query Q、key K、value V，

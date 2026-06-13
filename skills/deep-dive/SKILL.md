@@ -5,18 +5,18 @@ description: Structured pedagogical deep-dive for new substantive topics across 
 
 # Deep-Dive Skill
 
-This skill turns a "I want to understand X" request into a structured deep-dive. It assumes the user is **Kros** — a curious, STEM-hungry learner whose existing preferences already set the surface (bilingual Chinese/English, science-narrative voice, visualization, connect-the-dots). Your job here is the **method underneath**: the skill adds the four things preferences alone can't deliver — prerequisite mapping, layered exposition, mechanism-accurate memory hooks, and a "where to go next" trailhead.
+This skill turns an "I want to understand X" request into a structured deep-dive. It targets a curious learner who wants a real working model of a concept, not just an answer — and it leans on whatever surface preferences the user has already set (language, voice, appetite for visualization). Your job here is the **method underneath**: the skill adds the four things surface preferences alone can't deliver — prerequisite mapping, layered exposition, mechanism-accurate memory hooks, and a "where to go next" trailhead.
 
 > If you're answering a quick factual question or helping with a writing/coding task, this skill is the wrong tool. Use it only when the user is asking to _understand_ something they don't yet have a working model of.
 
 ## Why this skill exists
 
-Kros has explicitly said: "I don't know what I don't know." That means the most valuable thing you can do is **make the unknown unknowns visible** — show the territory before walking through it, surface the prerequisites that other explanations silently assume, and connect the concept being asked about to neighbors he might not realize were relevant.
+A learner usually can't name their own blind spots — "you don't know what you don't know." So the most valuable thing you can do is **make the unknown unknowns visible** — show the territory before walking through it, surface the prerequisites that other explanations silently assume, and connect the concept being asked about to neighbors the user might not realize were relevant.
 
 Three principles run underneath everything below:
 
 1. **Map before walk.** A learner who can see the territory recovers faster from confusion than one who can only see the next step. Always sketch the landscape first.
-2. **Mechanism > surface similarity.** An analogy that _looks_ like the target but uses a different mechanism teaches a false model. Kros has explicit feedback on this — if you reach for an analogy, verify it shares the actual causal mechanism, not just the visual outcome. (Example: lift, thrust, and buoyancy all "make things go up" but are entirely different mechanisms; don't pool them.)
+2. **Mechanism > surface similarity.** An analogy that _looks_ like the target but uses a different mechanism teaches a false model. If you reach for an analogy, verify it shares the actual causal mechanism, not just the visual outcome. (Example: lift, thrust, and buoyancy all "make things go up" but are entirely different mechanisms; don't pool them.)
 3. **Leave a trail, not a destination.** End every deep-dive with concrete next steps so the learning compounds instead of ending in a cul-de-sac.
 
 ## The workflow
@@ -28,14 +28,14 @@ Treat the following as **elements that must appear somewhere** in your response,
 Before diving into the concept itself, situate it. Two or three sentences answering:
 
 - **What family does it belong to?** ("Diffusion models are a class of generative models, alongside GANs and VAEs.")
-- **What problem was it invented to solve?** ("It came out of attempts to fix GAN training instability around 2015.")
-- **Who and when?** Name the key people and the era — Kros's preferences explicitly ask for historical context and 人物故事。Don't manufacture drama; do mention the actual humans and the actual moment.
+- **What problem was it invented to solve?** ("Diffusion models came from modeling generation as the reverse of a gradual noising process — an idea rooted in nonequilibrium thermodynamics, Sohl-Dickstein et al. 2015 — not as a fix for GANs.")
+- **Who and when?** Name the key people and the era — historical context and the human story (人物故事) make a concept stick. Don't manufacture drama; do mention the actual humans and the actual moment.
 
 If the topic is purely procedural ("how do I use Polars"), the big-picture can be one sentence on what makes Polars distinct from pandas and why someone built it that way.
 
 ### 2. Prerequisite check (knowledge map)
 
-List the 2–5 concepts whose comfort level meaningfully changes how you'd explain this one. Then **ask** which of them need filling in first. This is not Socratic quizzing (Kros didn't opt into that); it's a quick calibration so you don't waste paragraphs on what he already knows or skip over what he doesn't.
+List the 2–5 concepts whose comfort level meaningfully changes how you'd explain this one. Then **ask** which of them need filling in first. This isn't Socratic quizzing (don't quiz unless the user asked for it); it's a quick calibration so you don't waste paragraphs on what they already know or skip over what they don't.
 
 Format example:
 
@@ -57,7 +57,7 @@ Walk through the concept in **three layers**, in this order:
 - **Mechanism** — _how_ it actually works, with enough detail to predict its behavior in a new situation. This is where the formalism, equations, code, or step-by-step process lives.
 - **Edge / limits** — where does it break, what doesn't it cover, what's the next concept that handles the gap?
 
-The bilingual convention from Kros's preferences applies throughout: STEM terms always bilingual (e.g., "梯度下降 (gradient descent)"), uncommon English vocabulary with brief Chinese gloss. For details on format, see [references/bilingual-conventions.md](references/bilingual-conventions.md).
+If the user is learning in a second language, apply the bilingual convention throughout: pair technical terms across both languages on first mention (e.g., "梯度下降 (gradient descent)") and gloss uncommon vocabulary. The reference's running example is a native Chinese speaker learning English — adapt it to the user's actual language pair. For details on format, see [references/bilingual-conventions.md](references/bilingual-conventions.md).
 
 ### 4. Memory hooks
 
@@ -74,17 +74,17 @@ See [references/memory-hooks-patterns.md](references/memory-hooks-patterns.md) f
 
 ### 5. Visualization
 
-Pick the right visual for the content. A visual must carry information you _can't_ convey as efficiently in prose — if a sentence does the job, don't draw. Quick rules, in roughly increasing cost:
+Pick the right visual for the content. A visual must carry information you _can't_ convey as efficiently in prose — if a sentence does the job, don't draw. Quick rules, in roughly increasing cost. The always-available primitives are **Mermaid**, **static SVG**, **Markdown tables**, and prose; the back-ticked entries below (`show_widget`, `data:create-viz`, `algorithmic-art`, `canvas-design`, `web-artifacts-builder`, `create_artifact`) name **optional artifact/widget capabilities that depend on the host environment** — use them when available, and fall back to a primitive (or describe-then-link) when not.
 
 - **Mermaid** — relationships, hierarchies, state machines, processes
-- **`show_widget`** — single-panel interactive demo (one slider → one effect), or static SVG (force diagrams, geometry, anatomy)
+- **`show_widget`** _(if available)_ — single-panel interactive demo (one slider → one effect), or static SVG (force diagrams, geometry, anatomy); fall back to static SVG/Mermaid
 - **Markdown table** — comparing 3+ things across 3+ axes
 - **Number callout + comparison** — when magnitude itself is the point
-- **`data:create-viz`** — real data → publication-quality chart
-- **`algorithmic-art` (p5.js)** — **dynamic systems**: emergence, chaos, percolation, cellular automata, flocking, gradient descent on a loss surface. The single biggest unlock for STEM teaching; reach for it whenever the concept IS evolution / local rules / randomness.
-- **`canvas-design`** — printable concept poster / cheat sheet
-- **`web-artifacts-builder`** — complex multi-panel interactive demo with state (overkill for single widgets)
-- **`create_artifact`** — when the artifact should outlive the chat turn
+- **`data:create-viz`** _(if available)_ — real data → publication-quality chart
+- **`algorithmic-art` (p5.js)** _(if available)_ — **dynamic systems**: emergence, chaos, percolation, cellular automata, flocking, gradient descent on a loss surface. The single biggest unlock for STEM teaching; reach for it whenever the concept IS evolution / local rules / randomness.
+- **`canvas-design`** _(if available)_ — printable concept poster / cheat sheet
+- **`web-artifacts-builder`** _(if available)_ — complex multi-panel interactive demo with state (overkill for single widgets)
+- **`create_artifact`** _(if available)_ — when the artifact should outlive the chat turn
 
 For products / physical objects, include a real image — reach for image search or generation rather than describing in words.
 
@@ -92,7 +92,7 @@ These rules cover the vast majority of cases. Only consult [references/visualiza
 
 ### 6. Connect the dots
 
-One short paragraph at the end: what _adjacent_ concepts does this unlock or relate to? Where does this fit in the broader map? This is the "I don't know what I don't know" remedy — surface 2–4 neighbors so Kros sees what's nearby even if he doesn't pursue them now.
+One short paragraph at the end: what _adjacent_ concepts does this unlock or relate to? Where does this fit in the broader map? This is the "I don't know what I don't know" remedy — surface 2–4 neighbors so the user sees what's nearby even if they don't pursue them now.
 
 Format example:
 
@@ -104,7 +104,7 @@ Format example:
 
 ### 7. Trailhead (next steps)
 
-End with concrete next steps Kros can actually take:
+End with concrete next steps the user can actually take:
 
 - **Read** — a specific paper, chapter, blog post, or textbook section (use real, verifiable references; if you're not sure, say so)
 - **Try** — a small experiment, code snippet, calculation, or thought experiment that tests understanding
@@ -119,7 +119,7 @@ A response using this skill is going to be **long**. To keep it from sprawling, 
 - Recap of what the user just asked
 - Hedging like "this is a great question" or "as you may know"
 - Restating the same thing in two different ways for emphasis
-- "Hopefully this helps! Let me know if you have any questions!" closers — Kros's writing preferences explicitly call this out
+- "Hopefully this helps! Let me know if you have any questions!" closers — they add nothing; cut them
 - Markdown overhead that doesn't add structure (don't bold every other word; don't bullet single sentences)
 
 ## Format choices

@@ -8,7 +8,8 @@
 #   - no check is failing (FAILURE / ERROR / TIMED_OUT / CANCELLED / STALE);
 #   - every review thread is resolved or outdated (none left open);
 #   - the PR is MERGEABLE (no conflict, not behind base);
-#   - no *required* human approval is still outstanding.
+#   - no *required* human approval is still outstanding;
+#   - coverage is complete (≤100 review threads and ≤100 checks — see truncation note).
 #
 # Usage:
 #   pr_status.sh <pr-number>                # uses the repo of the cwd
@@ -20,9 +21,21 @@
 # Exit code mirrors the verdict so callers can branch without parsing:
 #   0 GREEN   10 WAITING_CI   20 NEEDS_WORK   30 BLOCKED_HUMAN
 #   40 NOT_ELIGIBLE (draft/closed)   50 ERROR
+#
+# Coverage cap: the GraphQL query fetches the first 100 review threads and first
+# 100 checks (GitHub's per-page max). If a PR exceeds either, the result is
+# flagged `truncated`, a warning is emitted to stderr, and the verdict is held
+# back from GREEN — the cap is surfaced, never silent.
 set -euo pipefail
 
-die() { echo "{\"verdict\":\"ERROR\",\"error\":\"$1\"}"; exit 50; }
+die() {
+  # escape backslashes and double quotes so the JSON stays valid on any message
+  # (runs even when jq is missing, so it can't depend on jq)
+  local m=${1//\\/\\\\}
+  m=${m//\"/\\\"}
+  printf '{"verdict":"ERROR","error":"%s"}\n' "$m"
+  exit 50
+}
 command -v gh >/dev/null || die "gh not found"
 command -v jq >/dev/null || die "jq not found"
 
@@ -50,17 +63,23 @@ query($owner:String!,$repo:String!,$pr:Int!){
       mergeable mergeStateStatus reviewDecision
       headRefName baseRefName
       reviewThreads(first:100){
+        totalCount
+        pageInfo{ hasNextPage }
         nodes{
           id isResolved isOutdated path line
           comments(first:1){ nodes{ databaseId author{login} body } }
         }
       }
       commits(last:1){ nodes{ commit{ oid statusCheckRollup{ state
-        contexts(first:100){ nodes{
-          __typename
-          ... on CheckRun{ name status conclusion detailsUrl }
-          ... on StatusContext{ context state targetUrl }
-        }}
+        contexts(first:100){
+          totalCount
+          pageInfo{ hasNextPage }
+          nodes{
+            __typename
+            ... on CheckRun{ name status conclusion detailsUrl }
+            ... on StatusContext{ context state targetUrl }
+          }
+        }
       }}}}
     }
   }
@@ -74,6 +93,8 @@ echo "$raw" | jq --arg owner "$owner" --arg repo "$repo" '
   .data.repository.pullRequest as $pr
   | ($pr.commits.nodes[0].commit.statusCheckRollup.contexts.nodes // []) as $ctx
   | ($pr.reviewThreads.nodes // []) as $threads
+  | (($pr.reviewThreads.pageInfo.hasNextPage // false)
+     or ($pr.commits.nodes[0].commit.statusCheckRollup.contexts.pageInfo.hasNextPage // false)) as $truncated
   | ($ctx | map(select(
       (.__typename=="CheckRun" and (.status=="QUEUED" or .status=="IN_PROGRESS"))
       or (.__typename=="StatusContext" and (.state=="PENDING" or .state=="EXPECTED"))
@@ -91,6 +112,7 @@ echo "$raw" | jq --arg owner "$owner" --arg repo "$repo" '
       state: $pr.state, isDraft: $pr.isDraft,
       headRefName: $pr.headRefName, baseRefName: $pr.baseRefName,
       mergeable: $pr.mergeable, mergeStateStatus: $mss, reviewDecision: $rd,
+      truncated: $truncated,
       checks: { total: ($ctx|length), pending: ($pending|length), failing: ($failing|length),
                 pending_names: ($pending|map(.name // .context)),
                 failing_runs: ($failing|map({name:(.name // .context),
@@ -108,7 +130,8 @@ echo "$raw" | jq --arg owner "$owner" --arg repo "$repo" '
         behind: ($mss=="BEHIND"),
         mergeable_unknown: ($pr.mergeable=="UNKNOWN"),
         approval_outstanding: (($rd=="REVIEW_REQUIRED") or ($rd=="CHANGES_REQUESTED")),
-        protection_blocked: ($mss=="BLOCKED")
+        protection_blocked: ($mss=="BLOCKED"),
+        truncated: $truncated
       }
     }
   | .blockers = ([
@@ -118,22 +141,33 @@ echo "$raw" | jq --arg owner "$owner" --arg repo "$repo" '
       (if ._e.behind then "branch_behind_base" else empty end),
       (if ._e.approval_outstanding then ("approval_outstanding:"+($rd//"")) else empty end),
       (if ._e.action_required>0 then "check_action_required" else empty end),
-      (if ._e.protection_blocked then "branch_protection_blocked" else empty end)
+      (if ._e.protection_blocked then "branch_protection_blocked" else empty end),
+      (if ._e.truncated then "coverage_truncated" else empty end)
     ])
   | .verdict = (
       if ($pr.isDraft==true) then "NOT_ELIGIBLE"
       elif ($pr.state!="OPEN") then "NOT_ELIGIBLE"
       elif (._e.pending>0 or ._e.mergeable_unknown) then "WAITING_CI"
-      elif (._e.failing>0 or ._e.unresolved>0 or ._e.conflict or ._e.behind) then "NEEDS_WORK"
+      elif (._e.failing>0 or ._e.unresolved>0 or ._e.conflict or ._e.behind or ._e.truncated) then "NEEDS_WORK"
       elif (._e.approval_outstanding or ._e.action_required>0 or ._e.protection_blocked) then "BLOCKED_HUMAN"
       else "GREEN" end )
   | del(._e)
 '
 
+# loud, not silent: if either connection hit the 100 cap, GREEN can't be trusted
+if echo "$raw" | jq -e '
+  (.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage // false)
+  or (.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup.contexts.pageInfo.hasNextPage // false)
+' >/dev/null; then
+  echo "warning: PR has >100 review threads or >100 checks; results truncated and verdict held back from GREEN. Add pagination for full coverage." >&2
+fi
+
 v="$(echo "$raw" | jq -r '
   .data.repository.pullRequest as $pr
   | ($pr.commits.nodes[0].commit.statusCheckRollup.contexts.nodes // []) as $ctx
   | ($pr.reviewThreads.nodes // []) as $t
+  | (($pr.reviewThreads.pageInfo.hasNextPage // false)
+     or ($pr.commits.nodes[0].commit.statusCheckRollup.contexts.pageInfo.hasNextPage // false)) as $trunc
   | (($ctx|map(select((.__typename=="CheckRun" and (.status=="QUEUED" or .status=="IN_PROGRESS")) or (.__typename=="StatusContext" and (.state=="PENDING" or .state=="EXPECTED")))))|length) as $pend
   | (($ctx|map(select((.__typename=="CheckRun" and (.conclusion | IN("FAILURE","TIMED_OUT","CANCELLED","STALE","STARTUP_FAILURE"))) or (.__typename=="StatusContext" and (.state | IN("FAILURE","ERROR"))))))|length) as $fail
   | (($ctx|map(select(.__typename=="CheckRun" and .conclusion=="ACTION_REQUIRED")))|length) as $act
@@ -142,7 +176,7 @@ v="$(echo "$raw" | jq -r '
   | ($pr.reviewDecision // null) as $rd
   | if ($pr.isDraft==true or $pr.state!="OPEN") then "NOT_ELIGIBLE"
     elif ($pend>0 or $pr.mergeable=="UNKNOWN") then "WAITING_CI"
-    elif ($fail>0 or $un>0 or $pr.mergeable=="CONFLICTING" or $mss=="BEHIND") then "NEEDS_WORK"
+    elif ($fail>0 or $un>0 or $pr.mergeable=="CONFLICTING" or $mss=="BEHIND" or $trunc) then "NEEDS_WORK"
     elif (($rd=="REVIEW_REQUIRED") or ($rd=="CHANGES_REQUESTED") or ($act>0) or ($mss=="BLOCKED")) then "BLOCKED_HUMAN"
     else "GREEN" end')"
 case "$v" in

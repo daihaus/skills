@@ -84,6 +84,15 @@ TIMEOUT_BIN=""
 if command -v timeout >/dev/null 2>&1; then TIMEOUT_BIN=timeout
 elif command -v gtimeout >/dev/null 2>&1; then TIMEOUT_BIN=gtimeout; fi
 
+# The watchdog read (used only when there's no timeout binary) reaps a hung
+# child — the real `gh` process — with pkill -P. Without pkill that child can
+# orphan, so warn once if this fallback would run without either tool.
+PKILL_BIN=""
+command -v pkill >/dev/null 2>&1 && PKILL_BIN=pkill
+if [ -z "$TIMEOUT_BIN" ] && [ -z "$PKILL_BIN" ]; then
+  echo "wait_for_settle: no timeout/gtimeout or pkill found — a hung gate read stays bounded, but its gh child may orphan. Install coreutils (timeout) or procps (pkill) to avoid leaks." >&2
+fi
+
 # Read the gate, bounding it by READ_TIMEOUT so a hung gh call surfaces as exit
 # 124 (treated as a transient, retryable error) instead of blocking --max-wait
 # forever. With a timeout binary that bound is one exec; without one, a
@@ -94,22 +103,26 @@ read_gate() {
     "$TIMEOUT_BIN" "$READ_TIMEOUT" "$STATUS" "$@"
     return $?
   fi
-  local out waited=0 pid rc
+  local out err waited=0 pid rc
   out="$(mktemp "${TMPDIR:-/tmp}/wfs.XXXXXX")" || return 50
-  "$STATUS" "$@" >"$out" 2>/dev/null &
+  err="$(mktemp "${TMPDIR:-/tmp}/wfs.XXXXXX")" || { rm -f "$out"; return 50; }
+  # Redirect both streams to files (not inherited fds): an unreaped child can't
+  # then hold a caller's pipe open, and pr_status.sh's stderr is still surfaced
+  # afterward so its diagnostics (e.g. the truncation warning) stay visible.
+  "$STATUS" "$@" >"$out" 2>"$err" &
   pid=$!
   while kill -0 "$pid" 2>/dev/null; do
     if [ "$waited" -ge "$READ_TIMEOUT" ]; then
-      pkill -P "$pid" 2>/dev/null || true   # reap the hung child (e.g. gh) first
+      [ -n "$PKILL_BIN" ] && "$PKILL_BIN" -P "$pid" 2>/dev/null || true  # reap the hung child (e.g. gh)
       kill "$pid" 2>/dev/null || true
       wait "$pid" 2>/dev/null || true
-      cat "$out"; rm -f "$out"
+      cat "$out"; cat "$err" >&2; rm -f "$out" "$err"
       return 124
     fi
     sleep 1; waited=$((waited + 1))
   done
   wait "$pid"; rc=$?
-  cat "$out"; rm -f "$out"
+  cat "$out"; cat "$err" >&2; rm -f "$out" "$err"
   return "$rc"
 }
 

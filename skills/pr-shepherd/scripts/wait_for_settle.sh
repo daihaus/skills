@@ -65,13 +65,20 @@ while [ $# -gt 0 ]; do
 done
 [ "${#ARGS[@]}" -gt 0 ] || usage 1
 
+# --interval / --max-wait flow into $((...)) and sleep, so reject non-integers
+# up front with a clear message instead of a later arithmetic-expansion crash.
+case "$INTERVAL" in ''|*[!0-9]*) echo "wait_for_settle: --interval must be a non-negative integer (got '$INTERVAL')" >&2; exit 50 ;; esac
+case "$MAX_WAIT" in ''|*[!0-9]*) echo "wait_for_settle: --max-wait must be a non-negative integer (got '$MAX_WAIT')" >&2; exit 50 ;; esac
+[ "$INTERVAL" -ge 1 ] || { echo "wait_for_settle: --interval must be >= 1" >&2; exit 50; }
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATUS="$SCRIPT_DIR/pr_status.sh"
 [ -x "$STATUS" ] || { echo "wait_for_settle: cannot run $STATUS" >&2; exit 50; }
 
 # Resolve a timeout binary once (GNU coreutils `timeout`, or `gtimeout` on
-# macOS/Homebrew). Used to bound both the gate read and the checks-watch. If
-# neither exists, both run unbounded — the documented graceful fallback.
+# macOS/Homebrew). With it, each gate read is bounded and the checks-watch is
+# blocked efficiently. Without it, reads run unbounded (best-effort) and the
+# checks-wait falls back to interval polling — never an unbounded watch.
 TIMEOUT_BIN=""
 if command -v timeout >/dev/null 2>&1; then TIMEOUT_BIN=timeout
 elif command -v gtimeout >/dev/null 2>&1; then TIMEOUT_BIN=gtimeout; fi
@@ -130,7 +137,9 @@ while true; do
   # a long wait stays resumable rather than running unbounded.
   if [ "$SECONDS" -ge "$MAX_WAIT" ]; then
     [ -n "$last_json" ] && printf '%s\n' "$last_json"
-    echo "wait_for_settle: still WAITING_CI after ${MAX_WAIT}s. Re-run to resume: $(basename "$0") ${ARGS[*]}" >&2
+    # include the effective knobs so resuming keeps custom --interval/--max-wait
+    # (ARGS holds only the positional pr args; the flags were parsed out).
+    echo "wait_for_settle: still WAITING_CI after ${MAX_WAIT}s. Re-run to resume: $(basename "$0") --interval $INTERVAL --max-wait $MAX_WAIT ${ARGS[*]}" >&2
     exit 10
   fi
 

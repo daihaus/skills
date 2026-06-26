@@ -192,7 +192,9 @@ gh extension install cli/gh-webhook
 gh webhook forward --repo=OWNER/REPO \
   --events=check_run,check_suite,status,pull_request_review,pull_request_review_thread,workflow_run \
   --url=http://localhost:PORT/hook    # point at a minimal local receiver
-# org-scoped events additionally need: gh auth refresh -s admin:org_hook
+# repo-level events (above) need no extra scope. ONLY org-scoped events need
+# `gh auth refresh -s admin:org_hook`, which persistently broadens your gh token
+# to manage every webhook in the org — see the scope caveat below before running.
 ```
 
 **Integration stance — webhook is a wake signal, never the gate.** On each
@@ -207,5 +209,9 @@ re-querying the PR — the webhook just tells you _when_ to look.
 - A **long-running foreground daemon**; **one forwarder per repo** (a second
   start fails with `Hook already exists`).
 - Officially **dev/test only**, and **not supported on GitHub Enterprise Server**.
+- `admin:org_hook` (org-scoped events only) **persistently expands your `gh`
+  token** to manage every webhook in the org — a broad, lasting grant for a
+  convenience wake signal. Skip it unless you genuinely need org-level events;
+  repo-level events need no extra scope.
 - Keep the committed skill free of any real URL, port, token, or local path — use
   placeholders (`OWNER/REPO`, `PORT`) as above; this is a public repository.

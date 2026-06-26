@@ -20,9 +20,10 @@
 #   wait_for_settle.sh --interval 10 --max-wait 1800 <pr-number>
 #
 # Requires: gh (authenticated), jq, bash. No new hard dependency over
-# pr_status.sh; uses `timeout`/`gtimeout` if present to bound each gate read and
-# the checks-watch (so a hung gh call retries and --max-wait is honored),
-# falling back to unbounded calls otherwise.
+# pr_status.sh. With `timeout`/`gtimeout` present it bounds each gate read and
+# blocks efficiently on the checks-watch; without it, the checks-wait falls back
+# to interval polling so --max-wait is honored on every platform (only the
+# best-effort gate-read timeout is lost).
 # Output: the settled verdict JSON on stdout (same shape pr_status.sh emits).
 # Exit code mirrors the settled verdict (0 GREEN / 20 NEEDS_WORK / 30
 # BLOCKED_HUMAN / 40 NOT_ELIGIBLE / 50 ERROR). Exit 10 only on --max-wait
@@ -143,23 +144,26 @@ while true; do
     repo="$(printf '%s' "$json" | jq -r '.repo // empty' 2>/dev/null || true)"
   fi
 
-  if [ "$pending" -gt 0 ] && [ -n "$pr" ]; then
-    # checks are the holdup: block until they settle (no polling churn). the
-    # gate, not --watch, decides green, so ignore --watch's own exit code.
-    # --repo pins the watch to the repo pr_status.sh queried (not the cwd repo),
-    # so the owner/repo and url arg forms watch the right PR. wrap in timeout so
-    # --max-wait is honored even if CI hangs; unbounded if no timeout binary.
-    watch=(gh pr checks "$pr" --watch --fail-fast=false --interval "$INTERVAL")
-    [ -n "$repo" ] && watch+=(--repo "$repo")
+  if [ "$pending" -gt 0 ] && [ -n "$pr" ] && [ -n "$TIMEOUT_BIN" ]; then
+    # checks are the holdup AND we can bound the watch: block on it (efficient,
+    # no polling churn). the gate, not --watch, decides green, so ignore its exit
+    # code. --repo pins the watch to the repo pr_status.sh queried (not the cwd
+    # repo), so the owner/repo and url arg forms watch the right PR. the timeout
+    # wrap keeps --max-wait honored even if CI hangs. (without a timeout binary
+    # we fall through to the polling branch below instead — never an unbounded
+    # watch, so --max-wait holds on every platform.)
     remaining=$((MAX_WAIT - SECONDS)); [ "$remaining" -lt 1 ] && remaining=1
-    [ -n "$TIMEOUT_BIN" ] && watch=("$TIMEOUT_BIN" "$remaining" "${watch[@]}")
+    watch=("$TIMEOUT_BIN" "$remaining" gh pr checks "$pr" --watch --fail-fast=false --interval "$INTERVAL")
+    [ -n "$repo" ] && watch+=(--repo "$repo")
     t0=$SECONDS
     "${watch[@]}" >/dev/null 2>&1 || true
     # guard against a fast-returning/erroring --watch spinning the loop hot
     [ $((SECONDS - t0)) -lt "$INTERVAL" ] && [ "$SECONDS" -lt "$MAX_WAIT" ] && sleep "$INTERVAL"
   else
-    # mergeability still computing, waiting on a review/thread, or backing off a
-    # transient error — none of which --watch can see. short, bounded poll.
+    # interval-poll the gate: nothing pending (mergeability/review wait, which
+    # --watch can't see), no timeout binary to bound a --watch, or backing off a
+    # transient error. re-reading the full verdict keeps --max-wait honored via
+    # the top-of-loop cap, so this stays bounded and resumable on every platform.
     sleep "$INTERVAL"
   fi
 done

@@ -20,10 +20,10 @@
 #   wait_for_settle.sh --interval 10 --max-wait 1800 <pr-number>
 #
 # Requires: gh (authenticated), jq, bash. No new hard dependency over
-# pr_status.sh. With `timeout`/`gtimeout` present it bounds each gate read and
-# blocks efficiently on the checks-watch; without it, the checks-wait falls back
-# to interval polling so --max-wait is honored on every platform (only the
-# best-effort gate-read timeout is lost).
+# pr_status.sh. `timeout`/`gtimeout` is used if present to bound reads and block
+# efficiently on the checks-watch; without it, reads are bounded by a background
+# watchdog and the checks-wait falls back to interval polling — so --max-wait is
+# honored on every platform.
 # Output: the settled verdict JSON on stdout (same shape pr_status.sh emits).
 # Exit code mirrors the settled verdict (0 GREEN / 20 NEEDS_WORK / 30
 # BLOCKED_HUMAN / 40 NOT_ELIGIBLE / 50 ERROR). Exit 10 only on --max-wait
@@ -76,18 +76,41 @@ STATUS="$SCRIPT_DIR/pr_status.sh"
 [ -x "$STATUS" ] || { echo "wait_for_settle: cannot run $STATUS" >&2; exit 50; }
 
 # Resolve a timeout binary once (GNU coreutils `timeout`, or `gtimeout` on
-# macOS/Homebrew). With it, each gate read is bounded and the checks-watch is
-# blocked efficiently. Without it, reads run unbounded (best-effort) and the
-# checks-wait falls back to interval polling — never an unbounded watch.
+# macOS/Homebrew). It is preferred but not required: with it, each gate read is
+# bounded and the checks-watch is blocked efficiently; without it, reads are
+# bounded by a background+watchdog fallback (see read_gate) and the checks-wait
+# falls back to interval polling — never an unbounded watch or read.
 TIMEOUT_BIN=""
 if command -v timeout >/dev/null 2>&1; then TIMEOUT_BIN=timeout
 elif command -v gtimeout >/dev/null 2>&1; then TIMEOUT_BIN=gtimeout; fi
 
-# read the gate, bounding it by READ_TIMEOUT so a hung gh call surfaces as
-# exit 124 (treated as a transient, retryable error) instead of blocking forever.
+# Read the gate, bounding it by READ_TIMEOUT so a hung gh call surfaces as exit
+# 124 (treated as a transient, retryable error) instead of blocking --max-wait
+# forever. With a timeout binary that bound is one exec; without one, a
+# background job + watchdog kill enforces it portably — so the resumable
+# --max-wait promise holds on every platform, not just where `timeout` exists.
 read_gate() {
-  if [ -n "$TIMEOUT_BIN" ]; then "$TIMEOUT_BIN" "$READ_TIMEOUT" "$STATUS" "$@"
-  else "$STATUS" "$@"; fi
+  if [ -n "$TIMEOUT_BIN" ]; then
+    "$TIMEOUT_BIN" "$READ_TIMEOUT" "$STATUS" "$@"
+    return $?
+  fi
+  local out waited=0 pid rc
+  out="$(mktemp "${TMPDIR:-/tmp}/wfs.XXXXXX")" || return 50
+  "$STATUS" "$@" >"$out" 2>/dev/null &
+  pid=$!
+  while kill -0 "$pid" 2>/dev/null; do
+    if [ "$waited" -ge "$READ_TIMEOUT" ]; then
+      pkill -P "$pid" 2>/dev/null || true   # reap the hung child (e.g. gh) first
+      kill "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+      cat "$out"; rm -f "$out"
+      return 124
+    fi
+    sleep 1; waited=$((waited + 1))
+  done
+  wait "$pid"; rc=$?
+  cat "$out"; rm -f "$out"
+  return "$rc"
 }
 
 SECONDS=0
